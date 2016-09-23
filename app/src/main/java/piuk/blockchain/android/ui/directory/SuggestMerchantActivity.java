@@ -103,7 +103,8 @@ public class SuggestMerchantActivity extends BaseAuthActivity {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         locationListener = new MyLocationListener();
 
-        map = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map)).getMap();
+        // STOPSHIP: 23/09/2016 Fix me
+//        map = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map)).getMap();
         map.getUiSettings().setZoomControlsEnabled(true);
 
         try {

@@ -40,3 +40,6 @@ projectFilesBackup/
 
 # Captures
 captures
+
+# Firebase API Key
+google-services.json

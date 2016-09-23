@@ -136,7 +136,8 @@ public class MapActivity extends BaseAuthActivity implements LocationListener {
         tvWeb = (TextView) findViewById(R.id.tv_web);
         tvDesc = (TextView) findViewById(R.id.tv_desc);
 
-        map = ((MapFragment) getFragmentManager().findFragmentById(R.id.map)).getMap();
+        // STOPSHIP: 23/09/2016 Fix me
+//        map = ((MapFragment) getFragmentManager().findFragmentById(R.id.map)).getMap();
         map.setMyLocationEnabled(true);
         map.setOnMarkerClickListener(new OnMarkerClickListener() {
             @Override
