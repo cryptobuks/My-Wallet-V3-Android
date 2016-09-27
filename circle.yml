@@ -25,7 +25,7 @@ dependencies:
     - if [ ! -d "/usr/local/android-sdk-linux/extras/google/m2repository/com/google/firebase/firebase-messaging/9.6.0" ]; then echo y | android update sdk --no-ui --all --filter "extra-google-m2repository"; fi
     - ANDROID_HOME=/usr/local/android-sdk-linux ./gradlew dependencies
     # Decode Firebase API key
-    - echo $FIREBASE_API_JSON | base64 --decode > ~/app/google-services.json
+    - echo $FIREBASE_API_JSON | base64 --decode > app/google-services.json
 
   cache_directories:
     - '~/.android'
