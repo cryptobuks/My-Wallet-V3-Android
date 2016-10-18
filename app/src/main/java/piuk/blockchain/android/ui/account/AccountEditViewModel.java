@@ -26,6 +26,7 @@ import info.blockchain.wallet.payment.Payment;
 import info.blockchain.wallet.payment.data.SweepBundle;
 import info.blockchain.wallet.payment.data.UnspentOutputs;
 import info.blockchain.wallet.send.SendCoins;
+import info.blockchain.wallet.util.CharSequenceX;
 import info.blockchain.wallet.util.DoubleEncryptionFactory;
 import info.blockchain.wallet.util.PrivateKeyFactory;
 
@@ -472,26 +473,29 @@ public class AccountEditViewModel extends BaseViewModel {
 
                 try {
 
-                    boolean isWatchOnly = false;
-
                     LegacyAddress legacyAddress = ((LegacyAddress) pendingTransaction.sendingObject.accountObject);
                     String changeAddress = legacyAddress.getAddress();
 
+                    List<ECKey> keys = new ArrayList<>();
+                    if (payloadManager.getPayload().isDoubleEncrypted()) {
+                        ECKey walletKey = legacyAddress.getECKey(new CharSequenceX(secondPassword));
+                        keys.add(walletKey);
+                    } else {
+                        ECKey walletKey = legacyAddress.getECKey();
+                        keys.add(walletKey);
+                    }
+
                     new Payment().submitPayment(pendingTransaction.unspentOutputBundle,
-                            null,
-                            legacyAddress,
+                            keys,
                             pendingTransaction.receivingAddress,
                             changeAddress,
-                            pendingTransaction.note,
                             pendingTransaction.bigIntFee,
                             pendingTransaction.bigIntAmount,
-                            isWatchOnly,
-                            secondPassword,
                             new Payment.SubmitPaymentListener() {
                                 @Override
                                 public void onSuccess(String s) {
 
-                                    legacyAddress.setTag(PayloadManager.ARCHIVED_ADDRESS);
+                                    legacyAddress.setTag(LegacyAddress.ARCHIVED_ADDRESS);
                                     setArchive(true);
 
                                     if (alertDialog != null && alertDialog.isShowing())
@@ -499,7 +503,9 @@ public class AccountEditViewModel extends BaseViewModel {
                                     dataListener.onShowTransactionSuccess();
 
                                     //Update v2 balance immediately after spend - until refresh from server
-                                    MultiAddrFactory.getInstance().setLegacyBalance(MultiAddrFactory.getInstance().getLegacyBalance() - (pendingTransaction.bigIntAmount.longValue() + pendingTransaction.bigIntFee.longValue()));
+                                    long currentBalance = MultiAddrFactory.getInstance().getLegacyBalance();
+                                    long spentAmount = (pendingTransaction.bigIntAmount.longValue() + pendingTransaction.bigIntFee.longValue());
+                                    MultiAddrFactory.getInstance().setLegacyBalance(currentBalance - spentAmount);
                                     PayloadBridge.getInstance().remoteSaveThread(null);
 
                                     accountModel.setTransferFundsVisibility(View.GONE);

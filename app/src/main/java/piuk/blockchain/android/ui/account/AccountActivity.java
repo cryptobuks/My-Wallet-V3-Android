@@ -39,6 +39,7 @@ import info.blockchain.wallet.payload.ImportedAccount;
 import info.blockchain.wallet.payload.LegacyAddress;
 import info.blockchain.wallet.payload.Payload;
 import info.blockchain.wallet.payload.PayloadManager;
+import info.blockchain.wallet.util.CharSequenceX;
 import info.blockchain.wallet.util.DoubleEncryptionFactory;
 import info.blockchain.wallet.util.FormatsUtil;
 import info.blockchain.wallet.util.PrivateKeyFactory;
@@ -1070,7 +1071,7 @@ public class AccountActivity extends BaseAuthActivity implements AccountViewMode
                 @Override
                 public void onSecondPasswordValidated(String validateSecondPassword) {
                     secondPassword = validateSecondPassword;
-                    viewModel.sendPayment(pendingTransactionList, secondPassword);
+                    viewModel.sendPayment(pendingTransactionList, new CharSequenceX(secondPassword));
                 }
             });
 

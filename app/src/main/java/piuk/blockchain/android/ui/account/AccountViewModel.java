@@ -12,7 +12,9 @@ import info.blockchain.wallet.payment.Payment;
 import info.blockchain.wallet.payment.data.SweepBundle;
 import info.blockchain.wallet.payment.data.UnspentOutputs;
 import info.blockchain.wallet.send.SendCoins;
+import info.blockchain.wallet.util.CharSequenceX;
 
+import org.bitcoinj.core.ECKey;
 import org.json.JSONObject;
 
 import java.math.BigInteger;
@@ -110,7 +112,7 @@ public class AccountViewModel extends BaseViewModel {
                                     pendingSpend.sendingObject = new ItemAccount(legacyAddress.getLabel(), "", "", legacyAddress);
                                     pendingSpend.bigIntFee = pendingSpend.unspentOutputBundle.getAbsoluteFee();
                                     pendingSpend.bigIntAmount = sweepBundle.getSweepAmount();
-                                    pendingSpend.receivingAddress = payloadManager.getReceiveAddress(defaultIndex);//assign new receive address for each transfer
+                                    pendingSpend.addressToReceiveIndex = defaultIndex;
                                     totalToSend += pendingSpend.bigIntAmount.longValue();
                                     totalFee += pendingSpend.bigIntFee.longValue();
                                     pendingTransactionList.add(pendingSpend);
@@ -146,7 +148,7 @@ public class AccountViewModel extends BaseViewModel {
         }.execute();
     }
 
-    public void sendPayment(final ArrayList<PendingTransaction> pendingSpendList, String secondPassword) {
+    public void sendPayment(final ArrayList<PendingTransaction> pendingSpendList, CharSequenceX secondPassword) {
 
         new AsyncTask<Void, Void, Void>() {
 
@@ -171,26 +173,31 @@ public class AccountViewModel extends BaseViewModel {
 
                     try {
 
-                        boolean isWatchOnly = false;
-
                         LegacyAddress legacyAddress = ((LegacyAddress) pendingTransaction.sendingObject.accountObject);
                         String changeAddress = legacyAddress.getAddress();
+                        String receivingAddress = payloadManager.getNextReceiveAddress(pendingTransaction.addressToReceiveIndex);
+
+                        List<ECKey> keys = new ArrayList<>();
+                        if (payloadManager.getPayload().isDoubleEncrypted()) {
+                            ECKey walletKey = legacyAddress.getECKey(secondPassword);
+                            keys.add(walletKey);
+                        } else {
+                            ECKey walletKey = legacyAddress.getECKey();
+                            keys.add(walletKey);
+                        }
 
                         final int finalI = i;
-                        new Payment().submitPayment(pendingTransaction.unspentOutputBundle,
-                                null,
-                                legacyAddress,
-                                pendingTransaction.receivingAddress,
+                        new Payment().submitPayment(
+                                pendingTransaction.unspentOutputBundle,
+                                keys,
+                                receivingAddress,
                                 changeAddress,
-                                pendingTransaction.note,
                                 pendingTransaction.bigIntFee,
                                 pendingTransaction.bigIntAmount,
-                                isWatchOnly,
-                                secondPassword,
                                 new Payment.SubmitPaymentListener() {
                                     @Override
                                     public void onSuccess(String s) {
-
+                                        payloadManager.getPayload().getHdWallet().getAccounts().get(pendingTransaction.addressToReceiveIndex).incReceive();
                                         MultiAddrFactory.getInstance().setLegacyBalance(MultiAddrFactory.getInstance().getLegacyBalance() - (pendingTransaction.bigIntAmount.longValue() + pendingTransaction.bigIntFee.longValue()));
 
                                         if (finalI == pendingSpendList.size() - 1) {

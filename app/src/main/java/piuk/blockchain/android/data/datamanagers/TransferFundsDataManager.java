@@ -14,6 +14,7 @@ import info.blockchain.wallet.payment.data.UnspentOutputs;
 import info.blockchain.wallet.send.SendCoins;
 import info.blockchain.wallet.util.CharSequenceX;
 
+import org.bitcoinj.core.ECKey;
 import org.json.JSONObject;
 
 import java.math.BigInteger;
@@ -122,32 +123,41 @@ public class TransferFundsDataManager {
             for (int i = 0; i < pendingTransactions.size(); i++) {
                 PendingTransaction pendingTransaction = pendingTransactions.get(i);
 
-                boolean isWatchOnly = false;
-
-                LegacyAddress legacyAddress = ((LegacyAddress) pendingTransaction.sendingObject.accountObject);
-                String changeAddress = legacyAddress.getAddress();
-                String receivingAddress = mPayloadManager.getReceiveAddress(pendingTransaction.addressToReceiveIndex);
-
-                isWatchOnly = legacyAddress.isWatchOnly();
-
                 final int finalI = i;
                 try {
+
+                    LegacyAddress legacyAddress = ((LegacyAddress) pendingTransaction.sendingObject.accountObject);
+                    String changeAddress = legacyAddress.getAddress();
+                    String receivingAddress = mPayloadManager.getNextReceiveAddress(pendingTransaction.addressToReceiveIndex);
+
+                    List<ECKey> keys = new ArrayList<>();
+                    if (mPayloadManager.getPayload().isDoubleEncrypted()) {
+                        ECKey walletKey = legacyAddress.getECKey(secondPassword);
+                        keys.add(walletKey);
+                    } else {
+                        ECKey walletKey = legacyAddress.getECKey();
+                        keys.add(walletKey);
+                    }
+
                     payment.submitPayment(
                             pendingTransaction.unspentOutputBundle,
-                            null,
-                            legacyAddress,
+                            keys,
                             receivingAddress,
                             changeAddress,
-                            pendingTransaction.note,
                             pendingTransaction.bigIntFee,
                             pendingTransaction.bigIntAmount,
-                            isWatchOnly,
-                            secondPassword != null ? secondPassword.toString() : null,
                             new Payment.SubmitPaymentListener() {
                                 @Override
                                 public void onSuccess(String s) {
+                                    mPayloadManager.getPayload().getHdWallet().getAccounts().get(pendingTransaction.addressToReceiveIndex).incReceive();
+
+                                    if (subscriber.isUnsubscribed()) return;
                                     subscriber.onNext(s);
-                                    MultiAddrFactory.getInstance().setLegacyBalance(MultiAddrFactory.getInstance().getLegacyBalance() - (pendingTransaction.bigIntAmount.longValue() + pendingTransaction.bigIntFee.longValue()));
+
+                                    long currentBalance = MultiAddrFactory.getInstance().getLegacyBalance();
+                                    long spentAmount = (pendingTransaction.bigIntAmount.longValue() + pendingTransaction.bigIntFee.longValue());
+
+                                    MultiAddrFactory.getInstance().setLegacyBalance(currentBalance - spentAmount);
 
                                     if (finalI == pendingTransactions.size() - 1) {
                                         savePayloadToServer()
@@ -163,16 +173,19 @@ public class TransferFundsDataManager {
 
                                 @Override
                                 public void onFail(String error) {
-                                    subscriber.onError(new Throwable(error));
+                                    if (!subscriber.isUnsubscribed()) {
+                                        subscriber.onError(new Throwable(error));
+                                    }
                                 }
                             });
                 } catch (Exception e) {
-                    subscriber.onError(e);
+                    if (!subscriber.isUnsubscribed()) {
+                        subscriber.onError(e);
+                    }
                 }
             }
         });
     }
-
     /**
      * Syncs the {@link info.blockchain.wallet.payload.Payload} to the server, for instance after
      * archiving some addresses.
